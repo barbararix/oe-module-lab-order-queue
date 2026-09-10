@@ -1,4 +1,7 @@
+
 # OpenEMR Lab Order Queue
+
+<img width="1913" height="729" alt="Screenshot from 2026-09-10 15-18-53" src="https://github.com/user-attachments/assets/b225e50e-3b90-4bc7-b5ab-7ea423e51e1e" />
 
 Pre-encounter lab order management for OpenEMR. Place lab orders from the patient chart before an encounter exists, then attach them when the patient arrives.
 
