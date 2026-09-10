@@ -1,0 +1,262 @@
+{% extends "base.html.twig" %}
+
+{% block pagetitle %}
+    {% if order %}{{ 'View Queued Order'|xlt }}{% else %}{{ 'New Queued Lab Order'|xlt }}{% endif %}
+{% endblock %}
+
+{% block styles %}
+<style>
+    .proc-row { border: 1px solid #dee2e6; border-radius: 4px; padding: 10px; margin-bottom: 8px; background: #f8f9fa; }
+    .proc-row .remove-proc { color: var(--danger); cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h4>
+            <i class="fa fa-flask"></i>
+            {% if readOnly is defined and readOnly %}
+                {{ 'Queued Order Detail'|xlt }} #{{ order.queue_id|text }}
+            {% else %}
+                {{ 'New Queued Lab Order'|xlt }}
+            {% endif %}
+        </h4>
+    </div>
+    <div class="col-auto">
+        <a href="{{ modulePublicPath|attr }}queue.php?action=list&pid={{ pid|attr }}"
+           class="btn btn-secondary btn-sm">
+            <i class="fa fa-arrow-left"></i> {{ 'Back to Queue'|xlt }}
+        </a>
+    </div>
+</div>
+
+<form id="queueOrderForm" method="post">
+    <input type="hidden" name="csrf_token_form" value="{{ csrfToken|attr }}" />
+    <input type="hidden" name="pid" value="{{ pid|attr }}" />
+
+    {# Order Header Fields #}
+    <fieldset {% if readOnly is defined and readOnly %}disabled{% endif %}>
+        <legend>{{ 'Order Details'|xlt }}</legend>
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <label for="provider_id">{{ 'Ordering Provider'|xlt }}</label>
+                <select name="provider_id" id="provider_id" class="form-control form-control-sm">
+                    <option value="">{{ '-- Select --'|xlt }}</option>
+                    {% for prov in providers %}
+                        <option value="{{ prov.id|attr }}"
+                            {% if order and order.provider_id == prov.id %}selected{% elseif not order and currentProviderId == prov.id %}selected{% endif %}>
+                            {{ prov.lname|text }}, {{ prov.fname|text }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group col-md-3">
+                <label for="lab_id">{{ 'Sending To (Lab)'|xlt }}</label>
+                <select name="lab_id" id="lab_id" class="form-control form-control-sm">
+                    <option value="">{{ '-- Select Lab --'|xlt }}</option>
+                    {% for lab in labProviders %}
+                        <option value="{{ lab.ppid|attr }}"
+                            {% if order and order.lab_id == lab.ppid %}selected{% endif %}>
+                            {{ lab.name|text }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group col-md-2">
+                <label for="date_ordered">{{ 'Order Date'|xlt }}</label>
+                <input type="text" name="date_ordered" id="date_ordered"
+                       class="datepicker form-control form-control-sm"
+                       value="{{ order ? order.date_ordered|attr : 'now'|date('Y-m-d') }}" />
+            </div>
+            <div class="form-group col-md-2">
+                <label for="order_priority">{{ 'Priority'|xlt }}</label>
+                <select name="order_priority" id="order_priority" class="form-control form-control-sm">
+                    <option value="normal" {% if order and order.order_priority == 'normal' %}selected{% endif %}>{{ 'Normal'|xlt }}</option>
+                    <option value="high" {% if order and order.order_priority == 'high' %}selected{% endif %}>{{ 'High'|xlt }}</option>
+                    <option value="stat" {% if order and order.order_priority == 'stat' %}selected{% endif %}>{{ 'STAT'|xlt }}</option>
+                </select>
+            </div>
+            <div class="form-group col-md-2">
+                <label for="order_psc">{{ 'PSC Hold'|xlt }}</label>
+                <select name="order_psc" id="order_psc" class="form-control form-control-sm">
+                    <option value="0" {% if not order or not order.order_psc %}selected{% endif %}>{{ 'No'|xlt }}</option>
+                    <option value="1" {% if order and order.order_psc %}selected{% endif %}>{{ 'Yes'|xlt }}</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-3">
+                <label for="specimen_fasting">{{ 'Fasting'|xlt }}</label>
+                <select name="specimen_fasting" id="specimen_fasting" class="form-control form-control-sm">
+                    <option value="" {% if not order or not order.specimen_fasting %}selected{% endif %}>{{ 'N/A'|xlt }}</option>
+                    <option value="YES" {% if order and order.specimen_fasting == 'YES' %}selected{% endif %}>{{ 'Yes'|xlt }}</option>
+                    <option value="NO" {% if order and order.specimen_fasting == 'NO' %}selected{% endif %}>{{ 'No'|xlt }}</option>
+                </select>
+            </div>
+            <div class="form-group col-md-3">
+                <label for="specimen_volume">{{ 'Specimen Volume'|xlt }}</label>
+                <input type="text" name="specimen_volume" id="specimen_volume"
+                       class="form-control form-control-sm"
+                       value="{{ order ? order.specimen_volume|attr : '' }}" />
+            </div>
+            <div class="form-group col-md-6">
+                <label for="clinical_hx">{{ 'Clinical History'|xlt }}</label>
+                <input type="text" name="clinical_hx" id="clinical_hx"
+                       class="form-control form-control-sm"
+                       value="{{ order ? order.clinical_hx|attr : '' }}" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="patient_instructions">{{ 'Patient Instructions'|xlt }}</label>
+                <textarea name="patient_instructions" id="patient_instructions"
+                          class="form-control form-control-sm" rows="2">{{ order ? order.patient_instructions|text : '' }}</textarea>
+            </div>
+            <div class="form-group col-md-6">
+                <label for="notes">{{ 'Queue Notes'|xlt }}</label>
+                <textarea name="notes" id="notes"
+                          class="form-control form-control-sm" rows="2"
+                          placeholder="{{ 'Internal notes about why this order is queued'|xla }}">{{ order ? order.notes|text : '' }}</textarea>
+            </div>
+        </div>
+        <input type="hidden" name="procedure_order_type" value="laboratory_test" />
+    </fieldset>
+
+    {# Procedures Section #}
+    <fieldset {% if readOnly is defined and readOnly %}disabled{% endif %}>
+        <legend>
+            {{ 'Procedures'|xlt }}
+            {% if not readOnly is defined or not readOnly %}
+                <button type="button" class="btn btn-sm btn-outline-primary ml-2" id="addProcBtn">
+                    <i class="fa fa-plus"></i> {{ 'Add'|xlt }}
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-secondary ml-1" id="searchProcBtn">
+                    <i class="fa fa-search"></i> {{ 'Search Lab Compendium'|xlt }}
+                </button>
+            {% endif %}
+        </legend>
+        <div id="proceduresContainer">
+            {% if order and order.procedures is defined %}
+                {% for proc in order.procedures %}
+                    <div class="proc-row" data-index="{{ loop.index0 }}">
+                        <div class="form-row align-items-center">
+                            <div class="form-group col-md-2 mb-1">
+                                <label class="small">{{ 'Code'|xlt }}</label>
+                                <input type="text" name="proc_code[]" class="form-control form-control-sm"
+                                       value="{{ proc.procedure_code|attr }}" readonly />
+                            </div>
+                            <div class="form-group col-md-4 mb-1">
+                                <label class="small">{{ 'Name'|xlt }}</label>
+                                <input type="text" name="proc_name[]" class="form-control form-control-sm"
+                                       value="{{ proc.procedure_name|attr }}" readonly />
+                            </div>
+                            <div class="form-group col-md-3 mb-1">
+                                <label class="small">{{ 'Diagnoses'|xlt }} ({{ 'optional'|xlt }})</label>
+                                <input type="text" name="proc_diagnoses[]" class="form-control form-control-sm"
+                                       value="{{ proc.diagnoses|attr }}" />
+                            </div>
+                            <div class="col-md-2 mb-1">
+                                <input type="hidden" name="proc_order_title[]" value="{{ proc.procedure_order_title|attr }}" />
+                                <input type="hidden" name="proc_transport[]" value="{{ proc.transport|attr }}" />
+                                <input type="hidden" name="proc_type[]" value="{{ proc.procedure_type|attr }}" />
+                            </div>
+                            {% if not readOnly is defined or not readOnly %}
+                            <div class="col-md-1 mb-1 text-right">
+                                <span class="remove-proc" title="{{ 'Remove'|xla }}"><i class="fa fa-trash"></i></span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </fieldset>
+
+    {# Form Actions #}
+    {% if not readOnly is defined or not readOnly %}
+    <div class="form-row mt-3 mb-3">
+        <div class="col">
+            <button type="button" id="btnSave" class="btn btn-primary">
+                <i class="fa fa-save"></i> {{ 'Queue Order'|xlt }}
+            </button>
+            <a href="{{ modulePublicPath|attr }}queue.php?action=list&pid={{ pid|attr }}"
+               class="btn btn-secondary ml-2">
+                {{ 'Cancel'|xlt }}
+            </a>
+            <span id="saveSpinner" class="d-none ml-2">
+                <i class="fa fa-spinner fa-spin"></i> {{ 'Saving...'|xlt }}
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Read-only: show attach option if pending #}
+    {% if readOnly is defined and readOnly and order and order.status == 'pending' and encounters is defined and encounters|length > 0 %}
+    <div class="card mt-3">
+        <div class="card-body">
+            <h6>{{ 'Attach to Encounter'|xlt }}</h6>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <select id="attachEncounter" class="form-control form-control-sm">
+                        <option value="">{{ '-- Select Encounter --'|xlt }}</option>
+                        {% for enc in encounters %}
+                            <option value="{{ enc.encounter|attr }}">
+                                {{ enc.date|text }} - {{ enc.reason|text|default('No reason') }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="button" id="btnAttach" class="btn btn-success btn-sm"
+                            data-queue-id="{{ order.queue_id|attr }}"
+                            data-pid="{{ pid|attr }}">
+                        <i class="fa fa-link"></i> {{ 'Attach'|xlt }}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</form>
+
+{# Procedure row template for JS cloning #}
+<template id="procRowTemplate">
+    <div class="proc-row">
+        <div class="form-row align-items-center">
+            <div class="form-group col-md-2 mb-1">
+                <label class="small">{{ 'Code'|xlt }}</label>
+                <input type="text" name="proc_code[]" class="form-control form-control-sm proc-code-input" readonly />
+            </div>
+            <div class="form-group col-md-4 mb-1">
+                <label class="small">{{ 'Name'|xlt }}</label>
+                <input type="text" name="proc_name[]" class="form-control form-control-sm proc-name-input" readonly />
+            </div>
+            <div class="form-group col-md-3 mb-1">
+                <label class="small">{{ 'Diagnoses'|xlt }} ({{ 'optional'|xlt }})</label>
+                <input type="text" name="proc_diagnoses[]" class="form-control form-control-sm" />
+            </div>
+            <div class="col-md-2 mb-1">
+                <input type="hidden" name="proc_order_title[]" class="proc-title-input" value="" />
+                <input type="hidden" name="proc_transport[]" class="proc-transport-input" value="" />
+                <input type="hidden" name="proc_type[]" class="proc-type-input" value="laboratory_test" />
+            </div>
+            <div class="col-md-1 mb-1 text-right">
+                <span class="remove-proc" title="{{ 'Remove'|xla }}"><i class="fa fa-trash"></i></span>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ modulePublicPath|attr }}assets/js/queue.js"></script>
+<script>
+    LabOrderQueue.init({
+        csrfToken: {{ csrfToken|js_escape }},
+        modulePublicPath: {{ modulePublicPath|js_escape }},
+        webroot: {{ webroot|js_escape }},
+        pid: {{ pid }},
+    });
+</script>
+{% endblock %}

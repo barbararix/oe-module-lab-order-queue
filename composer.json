@@ -1,0 +1,33 @@
+{
+    "name": "juggernautsei/oe-module-lab-order-queue",
+    "description": "OpenEMR lab order queue for pre-encounter lab order management",
+    "type": "openemr-module",
+    "license": "GPL-3.0-only",
+    "minimum-stability": "stable",
+    "authors": [
+        {
+            "name": "Sherwin Gaddis",
+            "email": "sherwingaddis@gmail.com"
+        }
+    ],
+    "keywords": [
+        "openemr",
+        "openemr-module",
+        "labs",
+        "procedure-order",
+        "queue"
+    ],
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Juggernaut\\OpenEMR\\Modules\\LabOrderQueue\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Juggernaut\\OpenEMR\\Modules\\LabOrderQueue\\Tests\\": "tests/"
+        }
+    }
+}

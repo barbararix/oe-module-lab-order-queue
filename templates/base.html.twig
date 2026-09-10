@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block head %}
+        {{ setupHeader(['datetime-picker']) }}
+    {% endblock %}
+    <title>{% block pagetitle %}{{ 'Lab Order Queue'|xlt }}{% endblock %}</title>
+    {% block styles %}{% endblock %}
+</head>
+<body class="body_top">
+    <div class="container-fluid mt-2">
+        {% if errorMessage is defined and errorMessage %}
+            <div class="alert alert-danger">{{ errorMessage|text }}</div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </div>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

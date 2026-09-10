@@ -1,0 +1,23 @@
+{# 
+    Encounter Alert Banner
+    Rendered by Bootstrap listener on EncounterFormsListRenderEvent::EVENT_SECTION_RENDER_PRE
+    Shows pending queued orders count with link to attach.
+#}
+{% if pendingCount > 0 %}
+<div class="alert alert-warning alert-dismissible fade show d-flex align-items-center mb-3" role="alert" id="labQueueAlert">
+    <i class="fa fa-flask fa-lg mr-2"></i>
+    <div class="flex-grow-1">
+        <strong>{{ 'Lab Order Queue'|xlt }}:</strong>
+        {{ 'This patient has'|xlt }}
+        <strong>{{ pendingCount|text }}</strong>
+        {{ 'pending lab order(s) awaiting encounter attachment.'|xlt }}
+    </div>
+    <a href="{{ modulePublicPath|attr }}queue.php?action=list&pid={{ pid|attr }}"
+       class="btn btn-warning btn-sm ml-2" target="mod">
+        <i class="fa fa-link"></i> {{ 'View & Attach'|xlt }}
+    </a>
+    <button type="button" class="close ml-2" data-dismiss="alert" aria-label="Close">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+{% endif %}

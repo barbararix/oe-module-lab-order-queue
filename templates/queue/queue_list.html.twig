@@ -1,0 +1,196 @@
+{% extends "base.html.twig" %}
+
+{% block pagetitle %}{{ 'Lab Order Queue'|xlt }}{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <h4>
+            <i class="fa fa-flask"></i>
+            {% if globalView is defined and globalView %}
+                {{ 'All Pending Lab Orders'|xlt }}
+            {% else %}
+                {{ 'Pending Lab Orders'|xlt }}
+            {% endif %}
+        </h4>
+    </div>
+    {% if pid > 0 %}
+    <div class="col-auto">
+        <a href="{{ modulePublicPath|attr }}queue.php?action=new&pid={{ pid|attr }}"
+           class="btn btn-primary btn-sm">
+            <i class="fa fa-plus"></i> {{ 'New Queued Order'|xlt }}
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+{% if orders|length == 0 and (errorMessage is not defined or not errorMessage) %}
+    <div class="alert alert-info">
+        {{ 'No pending lab orders in queue.'|xlt }}
+    </div>
+{% elseif orders|length > 0 %}
+    <div class="table-responsive">
+        <table class="table table-sm table-striped table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    <th>{{ 'Queue ID'|xlt }}</th>
+                    {% if globalView is defined and globalView %}
+                        <th>{{ 'Patient'|xlt }}</th>
+                    {% endif %}
+                    <th>{{ 'Lab'|xlt }}</th>
+                    <th>{{ 'Date Ordered'|xlt }}</th>
+                    <th>{{ 'Priority'|xlt }}</th>
+                    <th>{{ 'Provider'|xlt }}</th>
+                    <th>{{ 'Notes'|xlt }}</th>
+                    <th>{{ 'Created'|xlt }}</th>
+                    <th class="text-center">{{ 'Actions'|xlt }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr id="queue-row-{{ order.queue_id|attr }}">
+                    <td>{{ order.queue_id|text }}</td>
+                    {% if globalView is defined and globalView %}
+                        <td>{{ order.patient_lname|text }}, {{ order.patient_fname|text }}</td>
+                    {% endif %}
+                    <td>{{ order.lab_name|text }}</td>
+                    <td>{{ order.date_ordered|text }}</td>
+                    <td>
+                        {% if order.order_priority == 'high' or order.order_priority == 'stat' %}
+                            <span class="badge badge-danger">{{ order.order_priority|text }}</span>
+                        {% else %}
+                            <span class="badge badge-secondary">{{ order.order_priority|text }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ order.provider_lname|text }}, {{ order.provider_fname|text }}</td>
+                    <td>{{ order.notes|text|length > 40 ? order.notes|text|slice(0, 40) ~ '...' : order.notes|text }}</td>
+                    <td>{{ order.created_at|text }}</td>
+                    <td class="text-center text-nowrap">
+                        <a href="{{ modulePublicPath|attr }}queue.php?action=view&queue_id={{ order.queue_id|attr }}"
+                           class="btn btn-info btn-sm" title="{{ 'View'|xla }}">
+                            <i class="fa fa-eye"></i>
+                        </a>
+                        {% if encounters|length > 0 %}
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-success btn-sm dropdown-toggle"
+                                    data-toggle="dropdown" title="{{ 'Attach to Encounter'|xla }}">
+                                <i class="fa fa-link"></i>
+                            </button>
+                            <div class="dropdown-menu dropdown-menu-right">
+                                {% for enc in encounters %}
+                                    <a class="dropdown-item attach-btn"
+                                       href="#"
+                                       data-queue-id="{{ order.queue_id|attr }}"
+                                       data-encounter-id="{{ enc.encounter|attr }}"
+                                       data-pid="{{ (globalView is defined and globalView) ? order.patient_id|attr : pid|attr }}">
+                                        {{ enc.date|text }} - {{ enc.reason|text|default('No reason') }}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        <button type="button"
+                                class="btn btn-danger btn-sm cancel-btn"
+                                data-queue-id="{{ order.queue_id|attr }}"
+                                title="{{ 'Cancel'|xla }}">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const csrfToken = {{ csrfToken|js_escape }};
+    const modulePublicPath = {{ modulePublicPath|js_escape }};
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Attach order to encounter
+        document.querySelectorAll('.attach-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const queueId = this.dataset.queueId;
+                const encounterId = this.dataset.encounterId;
+                const pid = this.dataset.pid;
+
+                if (!confirm(xl('Attach this order to the selected encounter?'))) {
+                    return;
+                }
+
+                top.restoreSession();
+                fetch(modulePublicPath + 'queue.php?action=attach', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: 'queue_id=' + encodeURIComponent(queueId) +
+                          '&encounter_id=' + encodeURIComponent(encounterId) +
+                          '&pid=' + encodeURIComponent(pid) +
+                          '&csrf_token_form=' + encodeURIComponent(csrfToken)
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        const row = document.getElementById('queue-row-' + queueId);
+                        if (row) {
+                            row.style.transition = 'opacity 0.3s';
+                            row.style.opacity = '0';
+                            setTimeout(function() { row.remove(); }, 300);
+                        }
+                        alert(data.message);
+                    } else {
+                        alert(data.message || xl('Failed to attach order.'));
+                    }
+                })
+                .catch(function() {
+                    alert(xl('Request failed. Please try again.'));
+                });
+            });
+        });
+
+        // Cancel order
+        document.querySelectorAll('.cancel-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const queueId = this.dataset.queueId;
+
+                if (!confirm(xl('Are you sure you want to cancel this order?'))) {
+                    return;
+                }
+
+                top.restoreSession();
+                fetch(modulePublicPath + 'queue.php?action=cancel', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: 'queue_id=' + encodeURIComponent(queueId) +
+                          '&csrf_token_form=' + encodeURIComponent(csrfToken)
+                })
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    if (data.success) {
+                        const row = document.getElementById('queue-row-' + queueId);
+                        if (row) {
+                            row.style.transition = 'opacity 0.3s';
+                            row.style.opacity = '0';
+                            setTimeout(function() { row.remove(); }, 300);
+                        }
+                    } else {
+                        alert(data.message || xl('Failed to cancel order.'));
+                    }
+                })
+                .catch(function() {
+                    alert(xl('Request failed. Please try again.'));
+                });
+            });
+        });
+    });
+</script>
+{% endblock %}
